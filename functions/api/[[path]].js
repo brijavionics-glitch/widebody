@@ -161,6 +161,61 @@ export async function onRequest(context) {
       try { return json({ ok: true, flights: await fr24(context, by, v) }, 200, 60); }
       catch (e) { return json({ ok: false, flights: [], error: String(e.message || e) }, 200); }
     }
+    if (path === "airport") {         // every arrival and departure at one airport, one call for all aircraft
+      const code = (q.get("code") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+      const from = Math.max(-24, Math.min(0, Number(q.get("from") || -12)));
+      const to = Math.max(6, Math.min(52, Number(q.get("to") || 26)));
+      if (code.length !== 3) return json({ error: "bad code" }, 400);
+      const bucket = Math.floor(Date.now() / 180000);           // same answer for everyone for 3 minutes
+      const key = new Request(`https://widebody-cache/airport/${code}/${from}/${to}/${bucket}`);
+      const hit = await caches.default.match(key);
+      if (hit) return new Response(hit.body, { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+      const now = Math.floor(Date.now() / 1000);
+      const out = { ok: true, code, arr: [], dep: [], pagesOk: 0, pagesFail: 0 };
+      for (const mode of ["arrivals", "departures"]) {
+        const start = now + from * 3600, end = now + to * 3600;
+        for (let page = 1; page <= 14; page++) {
+          const url = "https://api.flightradar24.com/common/v1/airport.json?code=" + code.toLowerCase() +
+            "&plugin[]=schedule&plugin-setting[schedule][mode]=" + mode +
+            "&plugin-setting[schedule][timestamp]=" + start + "&page=" + page + "&limit=100";
+          let data;
+          try {
+            const r = await fetch(url, { headers: UA });
+            if (!r.ok) throw new Error("status " + r.status);
+            data = await r.json();
+            out.pagesOk++;
+          } catch (e) { out.pagesFail++; await sleep(500); continue; }
+          const sch = ((((data.result || {}).response || {}).airport || {}).pluginData || {}).schedule || {};
+          const block = sch[mode] || {};
+          const rows = block.data || [];
+          let last = 0;
+          for (const row of rows) {
+            const f = row.flight || {};
+            const ac = f.aircraft || {}, t = f.time || {}, sc = t.scheduled || {}, re = t.real || {}, es = t.estimated || {};
+            const reg = fmtReg(ac.registration || "");
+            last = Math.max(last, mode === "arrivals" ? (sc.arrival || 0) : (sc.departure || 0));
+            if (!reg.startsWith("VT-")) continue;
+            const other = (((f.airport || {})[mode === "arrivals" ? "origin" : "destination"] || {}).code || {}).iata || "";
+            const item = {
+              flight: fmtFlight(((f.identification || {}).number || {}).default), reg,
+              model: ((ac.model || {}).code) || "",
+              origin: mode === "arrivals" ? other : code, dest: mode === "arrivals" ? code : other,
+              sd: sc.departure || 0, sa: sc.arrival || 0, rd: re.departure || 0, ra: re.arrival || 0,
+              ed: es.departure || 0, ea: es.arrival || 0,
+              text: (f.status || {}).text || "", live: !!(f.status || {}).live,
+            };
+            (mode === "arrivals" ? out.arr : out.dep).push(item);
+          }
+          const pg = block.page || {};
+          if (!rows.length || last > end || (pg.total && page >= pg.total)) break;
+          await sleep(120);
+        }
+      }
+      out.ok = out.pagesOk > 0;
+      const body = JSON.stringify(out);
+      if (out.ok) context.waitUntil(caches.default.put(key, new Response(body, { headers: { "cache-control": "public, max-age=180" } })));
+      return new Response(body, { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+    }
     if (path === "fr24batch") {        // up to 10 registrations or flights in one call
       const by = q.get("by") === "flight" ? "flight" : "reg";
       const list = (q.get("q") || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 10);
