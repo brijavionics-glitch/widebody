@@ -80,7 +80,7 @@
     renderStatus();
     let frOk = false, frFail = false;
     // flight times: 10 aircraft per call, so the free daily limit lasts
-    await pool(chunks(S.settings.regs.slice(), 10), 3, async (group) => {
+    await pool(chunks(S.settings.regs.slice(), 10), 2, async (group) => {
       const j = await api("fr24batch?by=reg&q=" + encodeURIComponent(group.join(",")));
       for (const reg of group) {
         const r = (j.results || {})[reg];
@@ -115,10 +115,19 @@
     if (/^B73|^B3[789]M/.test(c)) return "B737"; if (/^A3(19|20|21)|^A[12][019]N/.test(c)) return "A320";
     return "";
   }
+  // known type of each registration, so the type buttons show even before flight data loads
+  const KNOWN = {};
+  ["ANA","ANC","AND","ANE","ANG","ANH","ANI","ANJ","ANK","ANL","ANM","ANN","ANO","ANP","ANQ","ANR","ANS","ANT","ANU",
+   "ANV","ANW","ANX","ANY","ANZ","NAA","NAC"].forEach((x) => (KNOWN["VT-" + x] = "B788"));
+  ["AWA","AWB","AWC","AWD","TSD","TSE","TSH","TSN","TSO","TSP"].forEach((x) => (KNOWN["VT-" + x] = "B789"));
+  ["AEM","AEN","AEO","AEP","AEQ","ALJ","ALK","ALL","ALM","ALN","ALO","ALP","ALQ","ALR","ALS","ALT","ALU","ALX"]
+    .forEach((x) => (KNOWN["VT-" + x] = "B77W"));
+  ["ALF","ALG","AEF","AEI"].forEach((x) => (KNOWN["VT-" + x] = "B77L"));
+  ["JRA","JRB","JRC","JRD","JRE","JRF","JRG","JRH","JRI"].forEach((x) => (KNOWN["VT-" + x] = "A359"));
   function modelOf(reg) {                         // latest known type code of this aircraft
     const fl = (S.sched[reg] || {}).flights || [];
     const f = fl.find((x) => x.model);
-    return f ? f.model : "";
+    return f ? f.model : (KNOWN[reg] || "");
   }
   const FAMILIES = ["B777", "B787", "A330", "A350", "B737", "A320"];
 
@@ -451,7 +460,7 @@
     const dots = ["Flightradar24", "adsb.lol", "adsb.fi"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 1 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 2 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
