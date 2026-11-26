@@ -1,5 +1,5 @@
 // WIDEBODY TRACK offline helper: always tries the newest version first, the saved copy only when there is no internet.
-const CACHE = "widebody-v6";
+const CACHE = "widebody-v7";
 const SHELL = ["/", "/index.html", "/style.css", "/app.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/privacy.html"];
 self.addEventListener("install", (e) => {

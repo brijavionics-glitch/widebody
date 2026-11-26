@@ -78,17 +78,29 @@
     if (S.loading) return;
     S.loading = true;
     renderStatus();
-    let frOk = false, frFail = false;
-    // flight times: 10 aircraft per call, so the free daily limit lasts
-    await pool(chunks(S.settings.regs.slice(), 10), 2, async (group) => {
-      const j = await api("fr24batch?by=reg&q=" + encodeURIComponent(group.join(",")));
-      for (const reg of group) {
-        const r = (j.results || {})[reg];
-        if (r && r.ok) { frOk = true; if (r.flights.length || !S.sched[reg]) S.sched[reg] = { t: nowS(), flights: r.flights }; }
-        else frFail = true;                       // keep the last good data
-      }
+    // one list per airport (all arrivals and departures), then pick out our aircraft
+    const ahead = Object.values(S.nextDay).some(Boolean) ? 50 : 26;
+    const byReg = {};
+    let okCount = 0, failCount = 0;
+    await pool(S.settings.stations.map((x) => x.code), 2, async (code) => {
+      const j = await api(`airport?code=${code}&from=-12&to=${ahead}`).catch(() => null);
+      if (!j || !j.ok) { failCount++; return; }
+      okCount++;
+      for (const f of j.arr.concat(j.dep)) (byReg[f.reg] = byReg[f.reg] || []).push(f);
     });
-    S.health["Flightradar24"] = frOk ? true : (frFail ? false : undefined);
+    S.health["Flightradar24"] = okCount ? true : (failCount ? false : undefined);
+    if (okCount) {
+      const t = nowS();
+      for (const reg of S.settings.regs) {
+        const seen = new Set(), list = [];
+        for (const f of (byReg[reg] || []).sort((x, y) => (x.sd || x.sa) - (y.sd || y.sa))) {
+          const k = f.flight + "|" + (f.sd || f.sa);
+          if (!seen.has(k)) { seen.add(k); list.push(f); }
+        }
+        // keep the old data for an aircraft only when an airport list failed to load
+        if (list.length || !failCount || !S.sched[reg]) S.sched[reg] = { t, flights: list };
+      }
+    }
     // live positions: all aircraft near our airports, one call
     const nj = await api("near?stations=" + S.settings.stations.map((x) => x.code).join(",")).catch(() => null);
     if (nj && nj.ac) {
@@ -370,20 +382,6 @@
     }
     for (const k of Object.keys(seen)) if (seen[k].ref < now - 86400) delete seen[k];
     store.set("seen", seen);
-    // cross check by flight number: is the same flight now on a different aircraft?
-    const flights = [...new Set(todo.map((t) => t.r.flight))];
-    const byFlight = {};
-    await pool(chunks(flights, 10), 2, async (group) => {
-      const j = await api("fr24batch?by=flight&q=" + encodeURIComponent(group.join(",")));
-      for (const fn of group) { const r = (j.results || {})[fn]; if (r && r.ok) byFlight[fn] = r.flights; }
-    });
-    for (const t of todo) {
-      const list = byFlight[t.r.flight] || [];
-      const inst = list.filter((f) => (t.kind === "ARR" ? f.dest : f.origin) === t.st)
-        .map((f) => [Math.abs((t.kind === "ARR" ? f.sa : f.sd) - t.r.ref), f]).filter((x) => x[0] < 6 * 3600)
-        .sort((a, b) => a[0] - b[0])[0];
-      if (inst && inst[1].reg && inst[1].reg !== t.r.reg) addChange(t.st, t.kind, t.r.flight, t.r.reg, inst[1].reg, t.other, t.r.sched, t.r.date);
-    }
     render();
   }
 
@@ -460,7 +458,7 @@
     const dots = ["Flightradar24", "adsb.lol", "adsb.fi"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 2 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 3 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
@@ -732,7 +730,7 @@
     }
     const tb = e.target.closest("button[data-type]");
     if (tb) { S.type = tb.dataset.type; store.set("type", S.type); render(); return; }
-    if (e.target.id === "nextday") { const st = currentPage().key; S.nextDay[st] = !S.nextDay[st]; render(); return; }
+    if (e.target.id === "nextday") { const st = currentPage().key; S.nextDay[st] = !S.nextDay[st]; render(); refreshData(); return; }
     if (e.target.id === "onlinebtn") { showOnline(); return; }
 
     if (e.target.id === "sheet") $("sheet").classList.add("hidden");
