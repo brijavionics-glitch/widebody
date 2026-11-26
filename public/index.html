@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>WIDEBODY TRACK</title>
+<meta name="description" content="WIDEBODY TRACK tracks our aircraft arriving at and departing from Mumbai, Delhi, Bengaluru, Chennai and Kolkata.">
+<meta name="theme-color" content="#0a0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="WIDEBODY TRACK">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="top">
+  <div class="titlerow"><div class="title">✈️ WIDEBODY TRACK</div><div id="chip"></div></div>
+  <nav id="menu"></nav>
+  <div id="topbody"><div class="loading">Loading…</div></div>
+</div>
+
+<main id="light">
+  <div id="lightbody"></div>
+
+  <div id="bottomwhite">
+  <h2 class="sec">Settings</h2>
+  <details class="set" id="set-stations">
+    <summary>🛫 Stations · add or remove</summary>
+    <div class="setbody">
+      <div id="stationlist" class="chips"></div>
+      <div class="addrow">
+        <input id="stationinput" placeholder="Airport code, e.g. BLR" autocomplete="off" maxlength="30">
+        <button id="stationadd" class="btn">Add</button>
+      </div>
+      <div id="stationsug" class="sug"></div>
+      <p class="hint">A password is asked every time you add or remove.</p>
+    </div>
+  </details>
+
+  <details class="set" id="set-aircraft">
+    <summary>✈️ Aircraft · add or remove</summary>
+    <div class="setbody">
+      <div id="reglist" class="chips"></div>
+      <div class="addrow">
+        <input id="reginput" placeholder="Registration, e.g. VT-ANB" autocomplete="off" maxlength="10">
+        <button id="regadd" class="btn">Add</button>
+      </div>
+      <div id="regsug" class="sug"></div>
+      <p class="hint">A password is asked every time you add or remove.</p>
+    </div>
+  </details>
+
+  <details class="set" id="set-voice">
+    <summary>🎙️ Team voice message · record and send</summary>
+    <div class="setbody" id="voicebody"></div>
+  </details>
+
+  <details class="set">
+    <summary>❓ Help</summary>
+    <div class="setbody help">
+      <ol>
+        <li>Mumbai Live and Delhi Live show every arrival and departure of our aircraft.</li>
+        <li>Fleet shows where each aircraft is now.</li>
+        <li>The orange line under an arrival shows how far the aircraft has flown.</li>
+        <li>A red blinking time means the arrival is within 15 minutes, or the departure is within 1 hour 30 minutes.</li>
+        <li>The team voice message plays once each time the app is opened (touch the screen once first).</li>
+        <li>Tap an aircraft name to share it on WhatsApp.</li>
+        <li>A * after Landed or Departed means the time has passed, but the source has not confirmed it yet.</li>
+        <li>Data comes from Flightradar24, adsb.lol and adsb.fi.</li>
+      </ol>
+      <p><a href="/privacy.html">Privacy policy</a></p>
+    </div>
+  </details>
+
+  <div id="status"></div>
+  <button id="onlinebtn" class="online">🟢 … online now</button>
+  <div style="height:70px"></div>
+  </div>
+</main>
+
+<div id="sheet" class="sheet hidden"><div class="sheetbox"><div id="sheetbody"></div></div></div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>
