@@ -165,10 +165,11 @@ export async function onRequest(context) {
       const by = q.get("by") === "flight" ? "flight" : "reg";
       const list = (q.get("q") || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 10);
       const results = {};
-      await Promise.all(list.map(async (v) => {
+      for (const v of list) {          // one at a time with a short gap, so Flightradar24 does not refuse
         try { results[v] = { ok: true, flights: await fr24(context, by, v) }; }
         catch (e) { results[v] = { ok: false, flights: [] }; }
-      }));
+        await sleep(150);
+      }
       return json({ results }, 200, 60);
     }
     if (path === "near") {             // all aircraft near our airports, in one call
