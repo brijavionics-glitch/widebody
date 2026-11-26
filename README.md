@@ -10,3 +10,5 @@ Cloudflare Pages settings:
 - Build output directory: public
 - D1 database binding name: DB
 - Secret: ADMIN_PASSWORD
+
+Updated: 26 Nov 2026
