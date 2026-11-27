@@ -101,10 +101,14 @@ async function adsb(ctx, reg) {
     ["adsb.lol", "https://api.adsb.lol/v2/reg/" + encodeURIComponent(reg)],
     ["adsb.fi", "https://opendata.adsb.fi/api/v2/registration/" + encodeURIComponent(reg)],
   ];
+  // Extra backup source: FlyItalyADSB (free key, saved in Cloudflare as the secret FLYITALY_KEY).
+  // If the key is not set, this source is simply skipped.
+  const flyKey = String((ctx.env || {}).FLYITALY_KEY || "");
+  if (flyKey) sources.push(["FlyItalyADSB", "https://api.flyitalyadsb.com/v2/reg/" + encodeURIComponent(reg), flyKey]);
   const health = {};
-  for (const [name, url] of sources) {
+  for (const [name, url, key] of sources) {
     try {
-      const { data } = await cachedFetch(ctx, url, 120);
+      const { data } = await cachedFetch(ctx, url, 120, key ? { ...UA, "X-Api-Key": key } : UA);
       health[name] = true;
       const ac = (data.ac || data.aircraft || [])[0];
       if (!ac) return { seen: false, source: name, health };
