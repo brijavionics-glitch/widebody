@@ -394,7 +394,7 @@
           const other = kind === "ARR" ? r.from : r.to;
           if (seen[k] && seen[k].reg && seen[k].reg !== r.reg) addChange(st.code, kind, r.flight, seen[k].reg, r.reg, other, r.sched, r.date);
           seen[k] = { reg: r.reg, ref: r.ref };
-          if (!r.done && r.ref <= now + 12 * 3600) todo.push({ st: st.code, kind, r, other });
+          if (!r.done && r.state !== "Landing" && r.state !== "Departing" && r.ref <= now + 12 * 3600) todo.push({ st: st.code, kind, r, other });
         }
       }
     }
@@ -473,10 +473,10 @@
   }
   function renderStatus() {
     const t = S.lastUpdate ? `${dmy(S.lastUpdate)} · ${hhmm(S.lastUpdate)} IST` : "not yet";
-    const dots = ["Flightradar24", "adsb.lol", "adsb.fi"].map((n) => {
+    const dots = ["Flightradar24", "adsb.lol", "adsb.fi", "FlyItalyADSB"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 5 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 6 · Last update ${t} · updates every 10 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
