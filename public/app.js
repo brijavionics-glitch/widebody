@@ -5,7 +5,8 @@
 
   // ------------------------------------------------------------------ basics
   const IST = 19800;                       // India time = UTC + 5:30 (seconds)
-  const REFRESH = 180;                     // update every 3 minutes
+  const REFRESH = 600;                     // update every 10 minutes (also updates instantly when the app is opened)
+  const MSG_REFRESH = 180;                 // voice messages are checked every 3 minutes
   const HOURS_BACK = 1;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -159,16 +160,17 @@
       if (f.rd || flyingNow || (f.live && txt.includes("estimated")) || txt.includes("departed")) {
         const t = f.rd || ref; return ["Departed", true, mins(t, sched), t];
       }
-      if (ref && now > ref + 600) return ["Departed", false, mins(ref, sched), ref];
+      if (ref && now > ref) return ["Departing", false, mins(ref, sched), ref];   // time passed, waiting for the real update
       return ["", false, mins(ref, sched), ref];
     }
     if (f.ra || txt.startsWith("landed")) { const t = f.ra || ref; return ["Landed", true, mins(t, sched), t]; }
     if (flyingNow || f.rd || f.live) return ["In air", true, mins(ref, sched), ref];
-    if (ref && now > ref + 600) return ["Landed", false, mins(ref, sched), ref];
+    if (ref && now > ref) return ["Landing", false, mins(ref, sched), ref];   // time passed, waiting for the real update
     return ["", false, mins(ref, sched), ref];
   }
   function progress(f, state, end, now) {
     if (state === "Landed") return 100;
+    if (state === "Landing") return 99;
     const start = f.rd || f.ed || f.sd;
     if (state !== "In air" || !start || !end || end <= start) return 0;
     return Math.round(Math.max(1, Math.min(99, (now - start) / (end - start) * 100)));
@@ -216,6 +218,7 @@
   function statusLines(r, kind) {
     if (r.state === "Cancelled" || r.state === "Diverted") return [[r.state, ""]];
     const t = timing(r.delay);
+    if (r.state === "Landing" || r.state === "Departing") return [[r.state, "s-info"], [t, ""]];
     if (r.done) return [[r.state + (r.confirmed ? "" : "*"), ""], [t, ""]];
     let lines = [[t, ""]];
     const mins = r.expT ? (r.expT - nowS()) / 60 : null;
@@ -275,7 +278,7 @@
     }
     h += `</tbody></table></div>`;
     let note = (kind === "arr" ? "Orange line shows how far the aircraft has flown · " : "") + "Tap an aircraft name to share it on WhatsApp";
-    if (rows.some((r) => r.state && !r.confirmed)) note += " · * = time has passed, not yet confirmed";
+    if (rows.some((r) => r.state && !r.confirmed)) note += " · Landing / Departing = time has passed, waiting for the next update to confirm";
     return h + `<div class="note">${esc(note)}</div>`;
   }
   function groundPairs(arr, dep) {
@@ -753,7 +756,7 @@
   ["touchend", "click", "keydown"].forEach((ev) => document.addEventListener(ev, () => { unlock(); wake(); }, true));
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") sleepReset();
-    else { chip(); wake(); if (nowS() - S.lastUpdate > 60) refreshData(); loadMsgMeta(); ping(); }
+    else { chip(); wake(); if (nowS() - S.lastUpdate > 15) refreshData(); loadMsgMeta(); ping(); }
   });
   window.addEventListener("pagehide", sleepReset);
 
@@ -779,6 +782,6 @@
   setInterval(() => { if (document.visibilityState === "visible") render(); }, 30000);   // countdowns move every 30 s
   setInterval(ping, 300000);
   setInterval(loadSettings, 10 * 60000);
-  setInterval(loadMsgMeta, REFRESH * 1000);
+  setInterval(loadMsgMeta, MSG_REFRESH * 1000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 })();
