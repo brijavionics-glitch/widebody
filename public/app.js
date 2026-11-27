@@ -238,7 +238,8 @@
     const now = nowS();
     const pick = (rows) => rows.filter((r) => !r.done && r.expT && r.expT >= now - 600).sort((a, b) => a.expT - b.expT)[0];
     const card = (r, kind) => {
-      const label = kind === "arr" ? "NEXT ARRIVAL" : "NEXT DEPARTURE";
+      const ty = S.type !== "ALL" ? S.type + " " : "";
+      const label = kind === "arr" ? `NEXT ${ty}ARRIVAL` : `NEXT ${ty}DEPARTURE`;
       if (!r) return `<div class="nm ${kind}"><div class="l"><span class="d"></span>${label}</div><div class="r2">None in this time window</div></div>`;
       const mins = (r.expT - now) / 60;
       const colour = r.delay > 60 ? "#ff453a" : (r.delay > 15 ? "#ff9f0a" : "#30d158");
@@ -414,7 +415,7 @@
     const { arr, dep } = board(station);
     const hasData = Object.keys(S.sched).length > 0;
     $("topbody").innerHTML = !hasData ? `<div class="loading">Loading flights…</div>` :
-      typeButtons(station) + table(arr, "arr", `🛬 Arrivals to ${place}${S.type !== "ALL" ? " · " + S.type : ""}`, place) +
+      typeButtons(station) + nextCards(arr, dep, place) + table(arr, "arr", `🛬 Arrivals to ${place}${S.type !== "ALL" ? " · " + S.type : ""}`, place) +
       `<div style="height:10px"></div>` + table(dep, "dep", `🛫 Departures from ${place}${S.type !== "ALL" ? " · " + S.type : ""}`, place);
 
     const now = nowS();
@@ -458,7 +459,7 @@
     const dots = ["Flightradar24", "adsb.lol", "adsb.fi"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 3 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 4 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
