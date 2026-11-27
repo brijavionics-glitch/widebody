@@ -362,8 +362,22 @@
     const text = kind === "DEP"
       ? `Before ${oldReg} was departing ${place} on ${flight} to ${o} at ${sched} on ${day}. Now ${newReg} is departing.`
       : `Before ${oldReg} was arriving at ${place} on ${flight} from ${o} at ${sched} on ${day}. Now ${newReg} is arriving.`;
-    all.push({ key, station, text, when: nowS() });
+    all.push({ key, station, text, kind, flight, oldReg, newReg, other, sched, day, when: nowS() });
     store.set("changes", all);
+  }
+  // aircraft changes as a table: old aircraft in red (crossed out), new aircraft in green
+  function changeTable(list, station) {
+    const rows = list.filter((c) => c.flight).map((c) => {
+      const dep = c.kind === "DEP";
+      const route = dep ? `${station} → ${c.other}` : `${c.other} → ${station}`;
+      return `<tr><td><b>${esc(c.flight)}</b><span class="s">${dep ? "🛫 Dep" : "🛬 Arr"}</span></td>` +
+        `<td>${esc(route)}<span class="s">${esc(c.sched)}, ${esc(c.day)}</span></td>` +
+        `<td><span class="oldreg">${esc(c.oldReg)}</span></td><td><span class="newreg">${esc(c.newReg)}</span></td></tr>`;
+    }).join("");
+    if (!rows) return `<div class="okbox">No aircraft changes.</div>`;
+    const last = Math.max(...list.map((c) => c.when));
+    return `<div class="chgt"><table><tr><th>Flight</th><th>Route · Time</th><th>Before</th><th>Now</th></tr>${rows}</table></div>` +
+      `<div class="lnote">Last change noticed at ${hhmm(last)} IST</div>`;
   }
   async function crossCheck() {
     const now = nowS();
@@ -429,7 +443,7 @@
       `<div class="dayrow"><span>Showing: ${showing}</span><button class="btn red" id="nextday">${S.nextDay[station] ? "Back to today" : "Next day ›"}</button></div>` +
       tonight(pairs, d0) +
       `<h2 class="sec">⚠️ Aircraft changes at ${esc(place)}</h2>` +
-      (ch.length ? ch.slice().reverse().map((c, i) => `<div class="chg">${i + 1}. ${esc(c.text)}<br><span class="when">Noticed at ${hhmm(c.when)} IST</span></div>`).join("")
+      (ch.length ? changeTable(ch.slice().reverse(), station)
         : `<div class="okbox">No aircraft changes. Every flight is checked at each update against the flight number and the aircraft list.</div>`);
     renderStatus();
   }
@@ -459,7 +473,7 @@
     const dots = ["Flightradar24", "adsb.lol", "adsb.fi"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 4 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 5 · Last update ${t} · updates every 3 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
