@@ -128,6 +128,7 @@ async function db(env) {
   await env.DB.batch([
     env.DB.prepare("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS online (sid TEXT PRIMARY KEY, seen INTEGER, city TEXT)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS visits (day TEXT, sid TEXT, city TEXT, PRIMARY KEY (day, sid))"),
   ]);
   return env.DB;
 }
@@ -329,22 +330,36 @@ export async function onRequest(context) {
       return json({ ok: true, id });
     }
 
-    // ----- who is online (phones say hello every 2 minutes) -----
+    // ----- who is online (phones say hello every 2 minutes) and how many used the app today -----
     if (path === "online") {
       const d = await db(env);
       const now = Math.floor(Date.now() / 1000);
+      const today = new Date((now + 19800) * 1000).toISOString().slice(0, 10);   // date in India time, resets at midnight
       if (request.method === "POST") {
         const body = await request.json();
         const sid = String(body.sid || "").slice(0, 40);
+        const city = String(body.city || "").slice(0, 60);
         if (sid) {
-          await d.prepare("INSERT INTO online (sid, seen, city) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET seen = excluded.seen, city = excluded.city")
-            .bind(sid, now, String(body.city || "").slice(0, 60)).run();
+          await d.batch([
+            d.prepare("INSERT INTO online (sid, seen, city) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET seen = excluded.seen, city = excluded.city")
+              .bind(sid, now, city),
+            // one row per phone per day, so opening the app many times still counts as one person
+            d.prepare("INSERT INTO visits (day, sid, city) VALUES (?, ?, ?) ON CONFLICT(day, sid) DO UPDATE SET city = CASE WHEN excluded.city <> '' THEN excluded.city ELSE visits.city END")
+              .bind(today, sid, city),
+          ]);
         }
-        if (Math.random() < 0.1) await d.prepare("DELETE FROM online WHERE seen < ?").bind(now - 3600).run();
+        if (Math.random() < 0.1) {
+          await d.prepare("DELETE FROM online WHERE seen < ?").bind(now - 3600).run();
+          await d.prepare("DELETE FROM visits WHERE day < ?").bind(new Date((now + 19800 - 7 * 86400) * 1000).toISOString().slice(0, 10)).run();
+        }
       }
       const rows = await d.prepare("SELECT sid, seen, city FROM online WHERE seen > ? ORDER BY seen DESC LIMIT 50")
         .bind(now - 360).all();
-      return json({ count: rows.results.length, people: rows.results.map((r) => ({ sid: r.sid, mins: Math.floor((now - r.seen) / 60), city: r.city })) });
+      const used = await d.prepare("SELECT city, COUNT(*) AS n FROM visits WHERE day = ? GROUP BY city ORDER BY n DESC").bind(today).all();
+      const todayCount = used.results.reduce((t, r) => t + r.n, 0);
+      return json({ count: rows.results.length, today: todayCount,
+        todayCities: used.results.map((r) => ({ city: r.city, n: r.n })),
+        people: rows.results.map((r) => ({ sid: r.sid, mins: Math.floor((now - r.seen) / 60), city: r.city })) });
     }
 
     return json({ error: "not found" }, 404);
