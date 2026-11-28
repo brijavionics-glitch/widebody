@@ -476,7 +476,7 @@
     const dots = ["Flightradar24", "adsb.lol", "adsb.fi", "FlyItalyADSB"].map((n) => {
       const v = S.health[n]; return `<span class="dot ${v === true ? "ok" : (v === false ? "fail" : "idle")}"></span>${n}`;
     }).join("");
-    $("status").innerHTML = `Version 6 · Last update ${t} · updates every 10 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
+    $("status").innerHTML = `Version 7 · Last update ${t} · updates every 10 minutes${S.loading ? " · updating…" : ""}<br>${dots}`;
   }
 
   // ------------------------------------------------------------------ settings (shared for everyone, password every time)
@@ -715,12 +715,18 @@
     const j = await post("online", { sid: S.sid, city: S.city }).catch(() => null);
     if (j && j.count != null) {
       S.online = j;
-      $("onlinebtn").textContent = `🟢 ${j.count} ${j.count === 1 ? "person" : "people"} online now · tap to see where`;
+      const t = j.today != null ? ` · ${j.today} used today` : "";
+      $("onlinebtn").textContent = `🟢 ${j.count} online now${t} · tap to see`;
     }
   }
   function showOnline() {
     const j = S.online || { people: [] };
-    $("sheetbody").innerHTML = `<h3>Online now</h3>` + (j.people || []).map((p, i) =>
+    const usedToday = j.today != null
+      ? `<h3>Used today: ${j.today} ${j.today === 1 ? "person" : "people"}</h3>` +
+        (j.todayCities || []).map((c) => `<div style="padding:4px 0">${esc(c.city || "Location not available")} · ${c.n}</div>`).join("") +
+        `<p class="hint">Each phone counts once a day, from midnight to midnight India time.</p>`
+      : "";
+    $("sheetbody").innerHTML = usedToday + `<h3>Online now: ${(j.people || []).length}</h3>` + (j.people || []).map((p, i) =>
       `<div style="padding:6px 0">${i + 1}. ${esc(p.city || "Location not available")} · active ${p.mins < 1 ? "now" : p.mins + " min ago"}${p.sid === S.sid ? " · <b>you</b>" : ""}</div>`).join("") +
       `<p class="hint">Rough city from each phone's internet address. Mobile networks can show a nearby big city.</p><div class="rowb"><button class="btn" id="tok">Close</button></div>`;
     $("sheet").classList.remove("hidden");
